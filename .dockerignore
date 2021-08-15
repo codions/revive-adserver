@@ -1,0 +1,6 @@
+.git
+.github
+.idea
+.DS_Store
+.*ignore
+.docker/storage

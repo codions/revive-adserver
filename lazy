@@ -1,0 +1,411 @@
+#!/usr/bin/env bash
+
+# Based on https://github.com/shipping-docker/vessel/blob/master/docker-files/vessel
+
+VERSION="1.0.0" # bumped to support lazy --help, lazy --version
+
+# define colors that are used in the help screen
+
+ESC_SEQ="\x1b["
+COL_RESET=${ESC_SEQ}"39;49;00m"
+COL_LYELLOW=${ESC_SEQ}"33;01m"
+COL_LGREEN=${ESC_SEQ}"32;01m"
+COL_CYAN=${ESC_SEQ}"0;36m"
+COL_GREEN=${ESC_SEQ}"0;32m"
+COL_MAGENTA=${ESC_SEQ}"0;35m"
+
+CONTAINER_APP="app"
+CONTAINER_MYSQL="mysql"
+CONTAINER_NODE="node"
+
+UNAMEOUT="$(uname -s)"
+case "${UNAMEOUT}" in
+    Linux*)             MACHINE=linux;;
+    Darwin*)            MACHINE=mac;;
+    MINGW64_NT-10.0*)   MACHINE=mingw64;;
+    *)                  MACHINE="UNKNOWN"
+esac
+
+if [ "$MACHINE" == "UNKNOWN" ]; then
+    echo "Unsupported system type"
+    echo "System must be a Macintosh, Linux or Windows"
+    echo ""
+    echo "System detection determined via uname command"
+    echo "If the following is empty, could not find uname command: $(which uname)"
+    echo "Your reported uname is: $(uname -s)"
+fi
+
+# Set environment variables for dev
+if [ "$MACHINE" == "linux" ]; then
+    if grep -q Microsoft /proc/version; then # WSL
+        export XDEBUG_HOST=10.0.75.1
+    else
+        if [ "$(command -v ip)" ]; then
+            export XDEBUG_HOST=$(ip addr show docker0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+        else
+            export XDEBUG_HOST=$(ifconfig docker0 | grep "inet addr" | cut -d ':' -f 2 | cut -d ' ' -f 1)
+        fi
+    fi
+    SEDCMD="sed -i"
+elif [ "$MACHINE" == "mac" ]; then
+    export XDEBUG_HOST=$(ipconfig getifaddr en0) # Ethernet
+
+    if [ -z "$XDEBUG_HOST" ]; then
+        export XDEBUG_HOST=$(ipconfig getifaddr en1) # Wifi
+    fi
+    SEDCMD="sed -i .bak"
+elif [ "$MACHINE" == "mingw64" ]; then # Git Bash
+    export XDEBUG_HOST=10.0.75.1
+    SEDCMD="sed -i"
+fi
+
+export APP_PORT=${APP_PORT:-80}
+export MYSQL_PORT=${MYSQL_PORT:-3306}
+export WWWUSER=${WWWUSER:-$UID}
+
+showVersion() {
+    intro="\n🦥 ${COL_GREEN}Lazy for Docker${COL_RESET}\n"
+    intro="$intro   ${COL_CYAN}Version ${VERSION}\n${COL_RESET}"
+
+    printf "$intro"
+}
+
+showHelp() {
+
+    showVersion
+
+    usage="${COL_LYELLOW}Usage:\n${COL_RESET}"
+    usage="$usage  ./lazy <cmd> <options>"
+
+    commands="${COL_LYELLOW}Commands:\n${COL_RESET}"
+    commands="$commands  art | artisan <cmd>         Run Laravel Artisan CLI in ${COL_MAGENTA}${CONTAINER_APP}${COL_RESET} container\n"
+    commands="$commands  composer <cmds>             Run Composer in ${COL_MAGENTA}${CONTAINER_APP}${COL_RESET} container\n"
+    commands="$commands  mysql                       Run MySQL CLI in ${COL_MAGENTA}${CONTAINER_MYSQL}${COL_RESET} container\n"
+    commands="$commands  dump (autoload)             Performs composer dump-autoload in ${COL_MAGENTA}${CONTAINER_APP}${COL_RESET} container\n"
+    commands="$commands  exec <container>            Execute a command in a running container\n"
+    commands="$commands  help                        Shows Help screen\n"
+    commands="$commands  logs <container> < -f >     Displays all logs for <container> and optionally tail\n"
+    commands="$commands  npm                         Execute npm command using ${COL_MAGENTA}${CONTAINER_NODE}${COL_RESET} container\n"
+    commands="$commands  ps                          Display list of all running containers in current directory\n"
+    commands="$commands  start < -l >                Starts all containers defined in ${COL_LGREEN}docker-compose.yml${COL_RESET} file\n"
+    commands="$commands  stop                        Stops all containers defined in ${COL_LGREEN}docker-compose.yml${COL_RESET} file\n"
+    commands="$commands  reset                       Delete all containers defined in ${COL_LGREEN}docker-compose.yml${COL_RESET} file\n"
+    commands="$commands  build                       Build Docker images defined in ${COL_LGREEN}docker-compose.yml${COL_RESET} file\n"
+    commands="$commands  push <tag>                  Build/Push Docker image defined in ${COL_LGREEN}Dockerfile${COL_RESET} file\n"
+    commands="$commands  test [params]               Runs PHPUnit using supplied options in ${COL_MAGENTA}${CONTAINER_APP}${COL_RESET} container\n"
+    commands="$commands  tinker                      Runs Tinker in ${COL_MAGENTA}${CONTAINER_APP}${COL_RESET} container\n"
+    commands="$commands  npm <options>               Runs npm using supplied options in ${COL_MAGENTA}${CONTAINER_NODE}${COL_RESET} container\n"
+    commands="$commands  yarn <options>              Runs yarn using supplied options in ${COL_MAGENTA}${CONTAINER_NODE}${COL_RESET} container\n"
+
+    options="${COL_LYELLOW}Options:\n${COL_RESET}"
+    options="$options --help, -h                   Shows Help (this screen)\n"
+    options="$options --version, -V, version       Show Version\n"
+
+    examples="${COL_LYELLOW}Examples:\n${COL_RESET}"
+    examples="$examples  ${COL_CYAN}$ ./lazy start${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy stop${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy reset${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy build${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy push${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy push 1.0${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy dump${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy logs # all container logs${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy composer require <vendor/package>${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy mysql${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy artisan migrate --seed${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy art db:seed${COL_RESET}\n"
+    examples="$examples  ${COL_CYAN}$ ./lazy test --filter=MyFilter${COL_RESET}\n"
+
+    printf "\n"
+    printf "$usage\n\n"
+    printf "$commands\n"
+    printf "$options\n"
+    printf "$examples\n"
+
+}
+
+# Is the environment running
+PSRESULT="$(docker-compose ps -q)"
+if [ ! -z "$PSRESULT" ]; then
+    EXEC="yes"
+else
+    EXEC="no"
+fi
+
+# Create base docker-compose command to run
+COMPOSE="docker-compose"
+
+# If we pass any arguments...
+if [ $# -gt 0 ]; then
+
+    # Source .env, which can over-ride env vars
+    # such as APP_PORT, MYSQL_PORT, and WWWUSER
+    if [ -f .env ]; then
+        source .env
+    fi
+
+
+    if [ "$1" == "--version" ] || [ "$1" == "-v" ] || [ "$1" == "version" ]; then
+        showVersion
+        exit 1
+    fi
+    if [ "$1" == "--help" ] || [ "$1" == "-H" ] || [ "$1" == "help" ]; then
+        showHelp
+        exit 1
+    fi
+
+
+    # Edit .env file to set correct hostnames for mysql/redis
+    if [ "$1" == "init" ]; then
+        echo "LAZY: Initializing Lazy..."
+        COMPOSER=$(which composer)
+
+        if [ ! -f .env ]; then
+            echo "No .env file found within current working directory $(pwd)"
+            echo "Create a .env file before re-initializing"
+            exit 0
+        fi
+
+        echo "LAZY: Setting .env Variables"
+        cp .env .env.bak.lazy
+
+        if [ ! -z "$(grep "DB_HOST" .env)" ]; then
+            $SEDCMD "s/DB_HOST=.*/DB_HOST=mysql/" .env
+        else
+            echo "DB_HOST=mysql" >> .env
+        fi
+
+        if [ ! -z "$(grep "CACHE_DRIVER" .env)" ]; then
+            $SEDCMD "s/CACHE_DRIVER=.*/CACHE_DRIVER=redis/" .env
+        else
+            echo "CACHE_DRIVER=redis" >> .env
+        fi
+
+        if [ ! -z "$(grep "SESSION_DRIVER" .env)" ]; then
+            $SEDCMD "s/SESSION_DRIVER=.*/SESSION_DRIVER=redis/" .env
+        else
+            echo "SESSION_DRIVER=redis" >> .env
+        fi
+
+        if [ ! -z "$(grep "REDIS_HOST" .env)" ]; then
+            $SEDCMD "s/REDIS_HOST=.*/REDIS_HOST=redis/" .env
+        else
+            echo "REDIS_HOST=redis" >> .env
+        fi
+
+        if [ -f .env.bak ]; then
+            rm .env.bak
+        fi
+
+        if [ ! -f lazy ]; then
+            echo "No lazy file found within current working directory $(pwd)"
+            echo "Have you run the artisan vendor:publish command yet?"
+            exit 0
+        fi
+
+        echo "LAZY: Making lazy command available"
+        chmod +x lazy
+
+        echo ""
+        echo "LAZY: Complete!"
+        echo "LAZY: You can now use Lazy"
+        echo "LAZY: Try starting it:"
+        echo "./lazy start"
+
+
+    # Start up containers
+    elif [ "$1" == "start" ]; then
+        $COMPOSE up -d
+
+    # Stop the containers
+    elif [ "$1" == "stop" ]; then
+        $COMPOSE down
+
+    # Reset the containers
+    elif [ "$1" == "reset" ]; then
+        $COMPOSE rm -s -f
+        
+        rm -rf .docker/storage/mysql/*
+        rm -rf .docker/storage/redis/*
+        rm -rf bootstrap/cache/*.php
+
+    elif [ "$1" == "build" ]; then
+        $COMPOSE rm -s -f
+        $COMPOSE up -d --build
+
+    elif [ "$1" == "push" ]; then
+
+        if [ -z "$2" ] ; then
+            DOCKER_TAG=latest
+        else
+            DOCKER_TAG=$2
+        fi
+
+        echo "Authenticating to the registry with a personal access token..."
+        echo $DOCKER_GITHUB_TOKEN | docker login https://${DOCKER_REGISTRY} -u ${DOCKER_GITHUB_USERNAME} --password-stdin
+
+        echo "Building the Docker image..."
+        docker build -t $DOCKER_IMAGE_URL:$DOCKER_TAG .
+
+        echo "Tagging Docker image..."
+        docker tag $DOCKER_IMAGE_NAME $DOCKER_IMAGE_URL:$DOCKER_TAG
+
+        if [ "$DOCKER_TAG" != "latest" ]; then
+            echo "Aliasing $DOCKER_TAG as latest..."
+            docker tag $DOCKER_IMAGE_URL:$DOCKER_TAG $DOCKER_IMAGE_URL:latest
+
+            echo "Publishing $DOCKER_IMAGE_URL:latest (from $DOCKER_TAG)"
+            docker push $DOCKER_IMAGE_URL:latest
+        fi
+
+        echo "Publish the image to Registry..."
+        docker push $DOCKER_IMAGE_URL:$DOCKER_TAG
+
+
+
+
+    # If "php" is used, pass-thru to "php"
+    # inside a new container
+    elif [ "$1" == "php" ]; then
+        shift 1
+        if [ "$EXEC" == "yes" ]; then
+            $COMPOSE exec \
+                app \
+                php "$@"
+        else
+            $COMPOSE run --rm \
+                app \
+                php "$@"
+        fi
+
+    # If "art" is used, pass-thru to "artisan"
+    # inside a new container
+    elif [ "$1" == "artisan" ] || [ "$1" == "art" ]; then
+        shift 1
+        if [ "$EXEC" == "yes" ]; then
+            $COMPOSE exec \
+                app \
+                php artisan "$@"
+        else
+            $COMPOSE run --rm \
+                app \
+                php artisan "$@"
+        fi
+
+    # If "composer" is used, pass-thru to "composer"
+    # inside a new container
+    elif [ "$1" == "composer" ] || [ "$1" == "comp" ]; then
+        shift 1
+        if [ "$EXEC" == "yes" ]; then
+            $COMPOSE exec \
+                app \
+                composer "$@"
+        else
+            $COMPOSE run --rm \
+                app \
+                composer "$@"
+        fi
+
+    # If "test" is used, run unit tests,
+    # pass-thru any extra arguments to php-unit
+    elif [ "$1" == "test" ]; then
+        shift 1
+        if [ "$EXEC" == "yes" ]; then
+            $COMPOSE exec \
+                app \
+                ./vendor/bin/phpunit "$@"
+        else
+            $COMPOSE run --rm \
+                app \
+                ./vendor/bin/phpunit "$@"
+        fi
+
+    # If "tinker" is used, drop into the REPL
+    # inside a new container
+    elif [ "$1" == "tinker" ] ; then
+        shift 1
+        if [ "$EXEC" == "yes" ]; then
+            $COMPOSE exec \
+                app \
+                php artisan tinker
+        else
+            $COMPOSE run --rm \
+                app \
+                php artisan tinker
+        fi
+
+    # If "node" is used, run node
+    # from our node container
+    elif [ "$1" == "node" ]; then
+        shift 1
+        $COMPOSE run --rm \
+            node \
+            node "$@"
+
+    # If "npm" is used, run npm
+    # from our node container
+    elif [ "$1" == "npm" ]; then
+        shift 1
+        $COMPOSE run --rm \
+            node \
+            npm "$@"
+
+    # If "yarn" is used, run yarn
+    # from our node container
+    elif [ "$1" == "yarn" ]; then
+        shift 1
+        $COMPOSE run --rm \
+            node \
+            yarn "$@"
+
+    # If "dump" is used, run mysqldump
+    # from our mysql container
+    elif [ "$1" == "dump" ]; then
+        shift 1
+        if [ "$EXEC" == "yes" ]; then
+            $COMPOSE exec \
+                mysql \
+                bash -c 'MYSQL_PWD=$MYSQL_ROOT_PASSWORD mysqldump -u root --default-character-set=utf8mb4 $MYSQL_DATABASE'
+        else
+            $COMPOSE run --rm \
+                mysql \
+                bash -c 'MYSQL_PWD=$MYSQL_ROOT_PASSWORD mysqldump -u root --default-character-set=utf8mb4 $MYSQL_DATABASE'
+        fi
+
+    # If "mysql" is used, run mysql
+    # from our mysql container
+    elif [ "$1" == "mysql" ]; then
+        shift 1
+        if [ "$EXEC" == "yes" ]; then
+            $COMPOSE exec \
+                mysql \
+                bash -c 'MYSQL_PWD=$MYSQL_ROOT_PASSWORD mysql -u root $MYSQL_DATABASE'
+        else
+            echo "Error: This command can only be run while a MySQL container is running mysqld (mysql server)."
+            echo "This command cannot run the server and the mysql client at the same time."
+        fi
+
+    # If "ssh" is used, pass-thru to "ssh"
+    # inside a new container
+    # e.g.: ./lazy ssh app
+    # e.g.: ./lazy ssh mysql
+    elif [ "$1" == "ssh" ]; then
+        shift 1
+        if [ "$EXEC" == "yes" ] && [ "$1" != "node" ]; then
+            $COMPOSE exec \
+                $1 \
+                bash
+        else
+            $COMPOSE run --rm \
+                $1 \
+                bash
+        fi
+
+    # Else, pass-thru args to docker-compose
+    else
+        $COMPOSE "$@"
+    fi
+else
+    # Use the docker-compose ps command if nothing else passed through
+    $COMPOSE ps
+fi
