@@ -7,7 +7,7 @@ Docker image Revive Adserver 5.2
 
 ```
 git clone https://github.com/codions/revive-adserver.git
-cd Revive-Adserver
+cd revive-adserver
 docker-compose up -d
 ```
 
@@ -22,4 +22,3 @@ Complete with the following MySQL configuration:
 ### References
 * https://www.revive-adserver.com/
 * https://github.com/revive-adserver/revive-adserver/
-* https://github.com/JAVI-CC/Revive-Adserver
