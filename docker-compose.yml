@@ -1,22 +1,50 @@
-version: '3.2'
+version: '2'
+
 services:
+
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: "dockerize -wait tcp://mysql:3306 -timeout 20s /usr/deploy/scripts/start"
     container_name: app
-    ports:
-        - '8080:80'
     restart: unless-stopped
     depends_on:
-        - mysql
+      - mysql
+    environment:
+      - ENABLE_SUPERVISOR_GUI=true
+      - SUPERVISORD_USER=admin
+      - SUPERVISORD_PASS=secret
+
+    volumes:
+      - ./.docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./.docker/storage/app/var:/usr/share/nginx/html/var
+      - ./.docker/storage/app/www/images:/usr/share/nginx/html/www/images
+
+    ports:
+      - "8080:80"
+      - "9001:9001"
+    links:
+      - mysql
+      - mailcatcher
+
   mysql:
     image: mysql:5.7
+    container_name: mysql
     restart: unless-stopped
     ports:
       - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: secret
-      MYSQL_DATABASE: revive
-      MYSQL_USER: user
-      MYSQL_PASSWORD: secret
+      - MYSQL_ROOT_PASSWORD=secret
+      - MYSQL_DATABASE=revive
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
     volumes:
       - ./.docker/storage/mysql:/var/lib/mysql
+
+  mailcatcher:
+    image: codions/mailcatcher
+    container_name: mailcatcher
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "1080:1080"

@@ -1,6 +1,5 @@
 .git
 .github
 .idea
+.env
 .DS_Store
-.*ignore
-.docker/storage

@@ -1,4 +1,4 @@
-# Revive-Adserver
+# Revive Adserver
 <img src="logo.png" alt="revive">
 
 Docker image Revive Adserver 5.2
