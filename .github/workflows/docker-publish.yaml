@@ -40,7 +40,7 @@ jobs:
 
           # Update version in project
           BUILD_TIMESTAMP=$(TZ=UTC date '+%Y-%m-%d %H:%M:%S %Z')
-          echo "{\"version\": \"$VERSION\", \"build\": \"$BUILD_TIMESTAMP\"}" > www/version.json
+          echo "{\"version\": \"$VERSION\", \"build\": \"$BUILD_TIMESTAMP\"}" > $GITHUB_WORKSPACE/www/version.json
 
       - name: Upload version.json
         uses: actions/upload-artifact@v2
