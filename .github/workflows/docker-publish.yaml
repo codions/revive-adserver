@@ -40,13 +40,13 @@ jobs:
 
           # Update version in project
           BUILD_TIMESTAMP=$(TZ=UTC date '+%Y-%m-%d %H:%M:%S %Z')
-          echo "{\"version\": \"$VERSION\", \"build\": \"$BUILD_TIMESTAMP\"}" > version/version.json
+          echo "{\"version\": \"$VERSION\", \"build\": \"$BUILD_TIMESTAMP\"}" > www/version.json
 
       - name: Upload version.json
         uses: actions/upload-artifact@v2
         with:
           name: version-json
-          path: version
+          path: www
 
   docker-ci:
     runs-on: ubuntu-latest
@@ -58,7 +58,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: version-json
-          path: version
+          path: www
 
       - name: Checkout repository
         uses: actions/checkout@v3
