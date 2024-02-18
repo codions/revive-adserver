@@ -23,7 +23,7 @@ RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
     && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
     && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
-RUN wget -qO- https://download.revive-adserver.com/revive-adserver-5.4.1.tar.gz | tar xz --strip 1 \
+RUN wget -qO- https://download.revive-adserver.com/revive-adserver-5.5.1.tar.gz | tar xz --strip 1 \
     && chown -Rf nginx.nginx .
 
 # Expose webserver port
