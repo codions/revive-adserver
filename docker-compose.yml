@@ -3,7 +3,9 @@ version: '2'
 services:
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
     # image: ghcr.io/codions/revive-adserver/revive-adserver:latest
     restart: unless-stopped
     depends_on:
