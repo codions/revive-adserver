@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-set -e
-
-while true; do
-	printf "${COL_GREEN} -----> Info:${COL_RESET} Running scheduled tasks.\n"
-	php /usr/share/nginx/html/scripts/maintenance/maintenance.php
-
-	sleep 60s
-done

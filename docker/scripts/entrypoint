@@ -1,0 +1,57 @@
+#!/bin/sh
+set -e
+
+# Function to log messages
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
+}
+
+log "Starting Revive Adserver entrypoint..."
+
+# Set permissions for nginx and php-fpm (logs go to stdout/stderr)
+chown -R nginx:www-data /var/www/html
+
+# Ensure proper permissions for Revive directories
+chmod -R 755 /var/www/html
+chmod -R 777 /var/www/html/var
+chmod -R 777 /var/www/html/www/images
+chmod -R 777 /var/www/html/www/delivery
+
+# Create required directories if they don't exist
+mkdir -p /var/www/html/var/cache
+mkdir -p /var/www/html/var/plugins
+mkdir -p /var/www/html/www/images
+mkdir -p /var/www/html/www/delivery
+
+# Set proper ownership
+chown -R nginx:www-data /var/www/html/var
+chown -R nginx:www-data /var/www/html/www/images
+chown -R nginx:www-data /var/www/html/www/delivery
+
+# Wait for MySQL to be ready if DB_HOST is set
+if [ -n "$DB_HOST" ]; then
+    log "Waiting for MySQL at $DB_HOST:${DB_PORT:-3306}..."
+    if command -v dockerize >/dev/null 2>&1; then
+        dockerize -wait tcp://$DB_HOST:${DB_PORT:-3306} -timeout 60s
+        log "MySQL is ready!"
+    else
+        # Fallback method
+        until nc -z $DB_HOST ${DB_PORT:-3306}; do
+            log "Waiting for MySQL..."
+            sleep 2
+        done
+        log "MySQL is ready!"
+    fi
+fi
+
+# Create timezone symlink if TZ is set
+if [ -n "$TZ" ]; then
+    log "Setting timezone to $TZ"
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
+    echo $TZ > /etc/timezone
+fi
+
+log "Entrypoint setup completed. Starting application..."
+
+# Execute the main command
+exec "$@"

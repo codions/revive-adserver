@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+# Function to log messages
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
+}
+
+log "Starting Revive Adserver services..."
+
+# Update nginx worker processes to match CPU count
+PROCS=$(nproc)
+log "Setting nginx worker_processes to $PROCS"
+sed -i "s/worker_processes auto;/worker_processes $PROCS;/" /etc/nginx/nginx.conf 2>/dev/null || true
+
+# Ensure proper permissions before starting services
+chown -R nginx:www-data /var/www/html
+chmod -R 755 /var/www/html
+chmod -R 777 /var/www/html/var /var/www/html/www/images /var/www/html/www/delivery
+
+# Create PID directories
+mkdir -p /run/nginx /run/php-fpm81
+
+# Start supervisord
+log "Launching supervisord..."
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
