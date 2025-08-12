@@ -2,22 +2,23 @@
 # Stage 1: Download and prepare Revive Adserver
 FROM alpine:3.19 AS downloader
 
+ARG REVIVE_VERSION=5.5.2
+
 RUN apk add --no-cache wget tar
 
 WORKDIR /tmp
-RUN wget -qO- "https://raw.githubusercontent.com/codions/revive-adserver/refs/heads/main/source/revive-adserver-${REVIVE_VERSION}.tar.gz" | tar xz --strip 1
+RUN wget -qO- "https://raw.githubusercontent.com/codions/revive-adserver/refs/heads/main/build/revive-adserver-${REVIVE_VERSION}.tar.gz" | tar xz --strip 1
 
 # Stage 2: Production image
 FROM alpine:3.19
 
+# Environment variables
+ARG APP_ENV=production
+ARG DOCKERIZE_VERSION=v0.7.0
+
 LABEL maintainer="Fábio Assunção fabio@codions.com"
 LABEL description="Revive Adserver v5.5.2 with Nginx, PHP 8.1-FPM on Alpine Linux"
 
-# Environment variables
-ENV APP_ENV=production
-ENV DOCKERIZE_VERSION=v0.7.0
-ENV PHP_VERSION=81
-ENV REVIVE_VERSION=5.5.2
 
 # Install system dependencies
 RUN apk add --no-cache \

@@ -28,22 +28,6 @@ chown -R nginx:www-data /var/www/html/var
 chown -R nginx:www-data /var/www/html/www/images
 chown -R nginx:www-data /var/www/html/www/delivery
 
-# Wait for MySQL to be ready if DB_HOST is set
-if [ -n "$DB_HOST" ]; then
-    log "Waiting for MySQL at $DB_HOST:${DB_PORT:-3306}..."
-    if command -v dockerize >/dev/null 2>&1; then
-        dockerize -wait tcp://$DB_HOST:${DB_PORT:-3306} -timeout 60s
-        log "MySQL is ready!"
-    else
-        # Fallback method
-        until nc -z $DB_HOST ${DB_PORT:-3306}; do
-            log "Waiting for MySQL..."
-            sleep 2
-        done
-        log "MySQL is ready!"
-    fi
-fi
-
 # Create timezone symlink if TZ is set
 if [ -n "$TZ" ]; then
     log "Setting timezone to $TZ"
