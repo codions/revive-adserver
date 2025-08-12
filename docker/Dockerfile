@@ -5,7 +5,7 @@ FROM alpine:3.19 AS downloader
 RUN apk add --no-cache wget tar
 
 WORKDIR /tmp
-RUN wget -qO- https://download.revive-adserver.com/revive-adserver-5.5.2.tar.gz | tar xz --strip 1
+RUN wget -qO- "https://raw.githubusercontent.com/codions/revive-adserver/refs/heads/main/source/revive-adserver-${REVIVE_VERSION}.tar.gz" | tar xz --strip 1
 
 # Stage 2: Production image
 FROM alpine:3.19
