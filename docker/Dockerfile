@@ -110,10 +110,6 @@ RUN chown -R nginx:www-data /var/www/html \
 # Test nginx configuration
 RUN nginx -t
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
-
 # Expose ports
 EXPOSE 80
 
