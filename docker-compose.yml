@@ -15,19 +15,6 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    environment:
-      - APP_ENV=production
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_DATABASE=${DB_DATABASE:-revive}
-      - DB_USERNAME=${DB_USERNAME:-revive}
-      - DB_PASSWORD=${DB_PASSWORD:-revive123}
-      - TZ=${TZ:-UTC}
-      # SMTP Configuration for Mailpit
-      - SMTP_HOST=mailpit
-      - SMTP_PORT=1025
-      - SMTP_AUTH=false
-      - SMTP_SECURE=false
     volumes:
       # Persistent data volumes
       - revive_images:/var/www/html/www/images
@@ -54,10 +41,10 @@ services:
     restart: unless-stopped
     command: --default-authentication-plugin=mysql_native_password
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root123}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-secret}
       MYSQL_DATABASE: ${DB_DATABASE:-revive}
       MYSQL_USER: ${DB_USERNAME:-revive}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-revive123}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
     volumes:
@@ -73,19 +60,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: revive-mailpit
-    restart: unless-stopped
-    environment:
-      - MP_SMTP_AUTH_ACCEPT_ANY=1
-      - MP_SMTP_AUTH_ALLOW_INSECURE=1
-    ports:
-      - "${MAILPIT_SMTP_PORT:-1025}:1025"
-      - "${MAILPIT_WEB_PORT:-8025}:8025"
-    networks:
-      - revive-network
 
 volumes:
   revive_mysql_data:

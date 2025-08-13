@@ -8,10 +8,9 @@ Este é um setup Docker otimizado para executar o **Revive Adserver v5.5.x** com
 
 - **Revive Adserver**: v5.5.x (mais recente)
 - **PHP**: 8.1 (versão mais recente compatível)
-- **Servidor Web**: Nginx (otimizado para performance)
+- **Servidor Web**: Nginx
 - **Banco de Dados**: MySQL 8.0
-- **Sistema Base**: Alpine Linux (imagem leve e segura)
-- **Orquestração**: Docker Compose v3.8
+- **Sistema Base**: Alpine Linux
 
 ## 🛠️ Instalação Rápida
 
@@ -20,37 +19,16 @@ Este é um setup Docker otimizado para executar o **Revive Adserver v5.5.x** com
    cd revive-adserver
    ```
 
-2. **Configure as variáveis de ambiente:**
-   ```bash
-   cp .env.example .env
-   ```
-   Edite o arquivo `.env` conforme necessário.
-
-3. **Inicie os containers:**
+2. **Inicie os containers:**
    ```bash
    docker-compose up -d
    ```
 
-4. **Acesse a instalação:**
+3. **Acesse a instalação:**
    - Revive Adserver: http://localhost:8080
-   - Mailpit (teste de emails): http://localhost:8025
 
 
 ## 🔧 Configuração
-
-### Variáveis de Ambiente
-
-| Variável | Padrão | Descrição |
-|----------|--------|-----------|
-| `APP_PORT` | `8080` | Porta da aplicação |
-| `DB_DATABASE` | `revive` | Nome do banco de dados |
-| `DB_USERNAME` | `revive` | Usuário do banco |
-| `DB_PASSWORD` | `revive123` | Senha do banco |
-| `DB_ROOT_PASSWORD` | `root123` | Senha root do MySQL |
-| `TZ` | `America/Sao_Paulo` | Timezone do container |
-| `SMTP_HOST` | `mailpit` | Servidor SMTP para testes |
-| `SMTP_PORT` | `1025` | Porta SMTP |
-| `MAILPIT_WEB_PORT` | `8025` | Porta web do Mailpit |
 
 ### Volumes Persistentes
 
@@ -68,7 +46,7 @@ Este é um setup Docker otimizado para executar o **Revive Adserver v5.5.x** com
    - **Porta**: `3306`
    - **Database**: `revive` (ou conforme configurado no .env)
    - **Usuário**: `revive` (ou conforme configurado no .env)
-   - **Senha**: `revive123` (ou conforme configurado no .env)
+   - **Senha**: `secret` (ou conforme configurado no .env)
 
 ## 📄 Licença
 
